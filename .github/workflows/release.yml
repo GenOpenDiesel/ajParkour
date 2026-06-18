@@ -1,0 +1,39 @@
+name: Build and Release
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - ".github/workflows/release.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build plugin and create release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build plugin
+        run: ./gradlew shadowJar
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: code-change-${{ github.run_number }}
+          name: Code change release ${{ github.run_number }}
+          body: |
+            Automatic release for commit ${{ github.sha }}.
+          files: build/libs/*.jar
