@@ -17,6 +17,7 @@ import us.ajg0702.parkour.Scores;
 import us.ajg0702.parkour.api.events.PlayerEndParkourEvent;
 import us.ajg0702.parkour.api.events.PlayerJumpEvent;
 import us.ajg0702.parkour.api.events.PlayerStartParkourEvent;
+import us.ajg0702.parkour.utils.FoliaScheduler;
 import us.ajg0702.parkour.utils.InvManager;
 import us.ajg0702.parkour.utils.VersionSupport;
 import us.ajg0702.utils.spigot.Config;
@@ -57,14 +58,14 @@ public class PkPlayer implements Listener {
 	int prevhigh = 0;
 	
 	int afkkick;
-	int afktask;
+	FoliaScheduler.Task afktask;
 	
 	int ahead; // how many (extra) blocks to make ahead
 	
-	int clearPotsTaskID;
+	FoliaScheduler.Task clearPotsTask;
 	
 	boolean fasterAfkCheck;
-	int fastAfkCheckID;
+	FoliaScheduler.Task fastAfkCheckTask;
 	
 	public boolean beatServerHighscore = false;
 	
@@ -105,17 +106,20 @@ public class PkPlayer implements Listener {
 		
 		fasterAfkCheck = config.getBoolean("faster-afk-detection");
 		
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+		FoliaScheduler.runAsync(plugin, () -> {
 			prevhigh = scores.getHighScore(ply.getUniqueId(), config.getBoolean("begin-score-per-area") ? area.getName() : null);
-			if(prevhigh > 0 && !(prevhigh+"").equalsIgnoreCase("-1")) {
-				p.sendMessage(msgs.get("start.score", p).replaceAll("\\{SCORE}", ""+prevhigh));
-			} else {
-				p.sendMessage(msgs.get("start.first", p).replaceAll("\\{SCORE}", ""+prevhigh));
-			}
+			final int highScore = prevhigh;
+			FoliaScheduler.runForEntity(plugin, p, () -> {
+				if(highScore > 0 && !(highScore+"").equalsIgnoreCase("-1")) {
+					p.sendMessage(msgs.get("start.score", p).replaceAll("\\{SCORE}", ""+ highScore));
+				} else {
+					p.sendMessage(msgs.get("start.first", p).replaceAll("\\{SCORE}", ""+ highScore));
+				}
+			});
 		});
 		
 		
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> plugin.scores.addToGamesPlayed(p.getUniqueId()));
+		FoliaScheduler.runAsync(plugin, () -> plugin.scores.addToGamesPlayed(p.getUniqueId()));
 		
 		
 		if(!fasterAfkCheck) {
@@ -123,7 +127,7 @@ public class PkPlayer implements Listener {
 				Bukkit.getServer().getPluginManager().registerEvents(this, plugin);
 			}
 		} else if(afkkick > 0) {
-			fastAfkCheckID = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> onMove(new PlayerMoveEvent(ply, p.getLocation(), p.getLocation())), 5, 5).getTaskId();
+			fastAfkCheckTask = FoliaScheduler.runTimerForEntity(plugin, ply, () -> onMove(new PlayerMoveEvent(ply, p.getLocation(), p.getLocation())), 5, 5);
 		}
 		
 		infiniteJump = Bukkit.getPluginManager().getPlugin("InfiniteJump") != null;
@@ -152,7 +156,7 @@ public class PkPlayer implements Listener {
 		Location tp = jumps.get(0).getTo();
 		teleporting = true;
 		p.teleport(new Location(tp.getWorld(), tp.getX()+0.5, tp.getY()+1.5, tp.getZ()+0.5, p.getLocation().getYaw(), p.getLocation().getPitch()));
-		Bukkit.getScheduler().scheduleSyncDelayedTask(m.main, () -> teleporting = false, 5);
+		FoliaScheduler.runDelayedForEntity(m.main, ply, () -> teleporting = false, 5);
 		
 		playSound("start-sound", p);
 		
@@ -179,16 +183,16 @@ public class PkPlayer implements Listener {
 		}
 		
 		if(afkkick >= 0) {
-			afktask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+			afktask = FoliaScheduler.runTimerForEntity(plugin, ply, () -> {
 				long distance = System.currentTimeMillis() - lastmove;
 				if(distance > (afkkick* 1000L)) {
 					end(msgs.get("fall.force.afk"));
 				}
-			}, afkkick* 20L, 20).getTaskId();
+			}, afkkick* 20L, 20);
 		}
 		
 		clearPots();
-		clearPotsTaskID = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+		clearPotsTask = FoliaScheduler.runTimerForEntity(plugin, ply, () -> {
 			if(Manager.getInstance().getPlayer(ply) != null) {
 				clearPots();
 			}
@@ -408,7 +412,7 @@ public class PkPlayer implements Listener {
 			j.remove();
 		}
 		
-		Bukkit.getScheduler().cancelTask(afktask);
+		if(afktask != null) afktask.cancel();
 		
 		if(!reason.isEmpty()) {
 			ply.sendMessage(msgs.get("fall.force.base")+reason);
@@ -424,13 +428,14 @@ public class PkPlayer implements Listener {
 			String scoreArea = plugin.getAConfig().getBoolean("begin-score-per-area") ? area.getName() : null;
 			int messageScore = scores.getHighScore(ply.getUniqueId(), scoreArea);
 			if(messageScore < score) {
-				ply.sendMessage(msgs.get("beatrecord", ply).replaceAll("\\{SCORE}", prevscore+""));
+				FoliaScheduler.runForEntity(plugin, ply, () ->
+						ply.sendMessage(msgs.get("beatrecord", ply).replaceAll("\\{SCORE}", prevscore+"")));
 			}
 		};
 		if(man.pluginDisabling) {
 			hsTask.run();
 		} else {
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, hsTask);
+			FoliaScheduler.runAsync(plugin, hsTask);
 		}
 		
 		
@@ -464,8 +469,8 @@ public class PkPlayer implements Listener {
 			man.checkActive();
 		}
 		
-		Bukkit.getScheduler().cancelTask(clearPotsTaskID);
-		Bukkit.getScheduler().cancelTask(fastAfkCheckID);
+		if(clearPotsTask != null) clearPotsTask.cancel();
+		if(fastAfkCheckTask != null) fastAfkCheckTask.cancel();
 		
 		playSound("end-sound", ply);
 		

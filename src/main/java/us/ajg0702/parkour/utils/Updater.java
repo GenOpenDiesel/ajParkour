@@ -57,12 +57,12 @@ public class Updater implements Listener {
 		currentVersion = pl.getDescription().getVersion().split("-")[0];
 		
 		check();
-		Bukkit.getScheduler().scheduleSyncRepeatingTask(pl, this::check,5*60*20, (long)3600*20); // checks for an update every hour
+		FoliaScheduler.runTimer(pl, this::check,5*60*20, (long)3600*20); // checks for an update every hour
 	}
 	
 	public void check() {
 		if(!enabled || alreadyDownloaded) return;
-		Bukkit.getScheduler().runTaskAsynchronously(pl, () -> {
+		FoliaScheduler.runAsync(pl, () -> {
 			try {
 				//URL url = new URL("https://api.spiget.org/v2/resources/60909/versions?size=1&sort=-releaseDate");
 				URL url = new URL("https://ajg0702.us/pl/ap/updates/getversion.php");
@@ -156,7 +156,7 @@ public class Updater implements Listener {
 		if(!enabled || alreadyDownloaded) return;
 		if(ready && updateAvailable && pl.config.getBoolean("notify-update")) {
 			if(!e.getPlayer().hasPermission("ajparkour.update")) return;
-			Bukkit.getScheduler().runTaskLater(pl, () -> e.getPlayer().sendMessage(lines+msgs.color("\n\n  &aAn update is available for ajParkour!\n  &2You can download it using /ajParkour update\n\n"+lines)), 20); // wait a second to send the message to try to make it at the bottom of all the other plugin messages
+			FoliaScheduler.runDelayedForEntity(pl, e.getPlayer(), () -> e.getPlayer().sendMessage(lines+msgs.color("\n\n  &aAn update is available for ajParkour!\n  &2You can download it using /ajParkour update\n\n"+lines)), 20); // wait a second to send the message to try to make it at the bottom of all the other plugin messages
 		}
 	}
 	

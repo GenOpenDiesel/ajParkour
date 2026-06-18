@@ -10,6 +10,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import us.ajg0702.parkour.game.Manager;
 import us.ajg0702.parkour.top.TopEntry;
+import us.ajg0702.parkour.utils.FoliaScheduler;
 
 import java.io.File;
 import java.io.IOException;
@@ -498,7 +499,7 @@ public class Scores {
 		if(Manager.getInstance().pluginDisabling) {
 			r.run();
 		} else {
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, r);
+			FoliaScheduler.runAsync(plugin, r);
 		}
 	}
 
@@ -571,8 +572,9 @@ public class Scores {
 
 
 	public void updateName(Player player) {
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-			UUID uuid = player.getUniqueId();
+		UUID uuid = player.getUniqueId();
+		String name = player.getName();
+		FoliaScheduler.runAsync(plugin, () -> {
 			try {
 				Connection conn = getConnection();
 				PreparedStatement psSelect = conn.prepareStatement("select id from "+ tablePrefix +"players where id=?");
@@ -581,7 +583,7 @@ public class Scores {
 
 				if(r.next()) {
 					PreparedStatement psUpdate = conn.prepareStatement("update "+ tablePrefix +"players set name=? where id=?");
-					psUpdate.setString(1, player.getName());
+					psUpdate.setString(1, name);
 					psUpdate.setString(2, uuid.toString());
 					psUpdate.executeUpdate();
 					psUpdate.close();
@@ -590,7 +592,7 @@ public class Scores {
 							"(id, material, name, gamesplayed) values" +
 							"(?, NULL, ?, 0)");
 					psInsert.setString(1, uuid.toString());
-					psInsert.setString(2, player.getName());
+					psInsert.setString(2, name);
 					psInsert.executeUpdate();
 					psInsert.close();
 				}
@@ -598,7 +600,7 @@ public class Scores {
 				psSelect.close();
 				closeConn(conn);
 			} catch (SQLException e) {
-				Bukkit.getLogger().severe("[ajParkour] An error occurred while trying to update name for player " + player.getName()+":");
+				Bukkit.getLogger().severe("[ajParkour] An error occurred while trying to update name for player " + name +":");
 				e.printStackTrace();
 			}
 		});

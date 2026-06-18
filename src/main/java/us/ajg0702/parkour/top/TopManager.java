@@ -1,11 +1,10 @@
 package us.ajg0702.parkour.top;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import us.ajg0702.parkour.Main;
+import us.ajg0702.parkour.utils.FoliaScheduler;
 
 import java.util.Calendar;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -53,7 +52,7 @@ public class TopManager {
     }
 
     private void fetchPositionAsync(int position, String area) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> fetchPosition(position, area));
+        FoliaScheduler.runAsync(plugin, () -> fetchPosition(position, area));
     }
     private TopEntry fetchPosition(int position, String area) {
         TopEntry te = plugin.scores.getTopPosition(position, area);
@@ -92,8 +91,8 @@ public class TopManager {
     long lastClean = 0;
 
     private void fetchHighScoreAsync(Player player, String area) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> fetchHighScore(player, area));
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        FoliaScheduler.runAsync(plugin, () -> fetchHighScore(player, area));
+        FoliaScheduler.runAsync(plugin, () -> {
             if(System.currentTimeMillis() - lastClean > 300e3) {
                 lastClean = System.currentTimeMillis();
 

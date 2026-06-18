@@ -7,6 +7,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import us.ajg0702.parkour.game.JumpManager;
 import us.ajg0702.parkour.game.Manager;
 import us.ajg0702.parkour.top.TopManager;
+import us.ajg0702.parkour.utils.FoliaScheduler;
 import us.ajg0702.parkour.utils.Updater;
 import us.ajg0702.utils.spigot.Config;
 
@@ -98,7 +99,7 @@ public class Main extends JavaPlugin {
 		JumpManager.getInstance(this);
 		
 		
-		Bukkit.getScheduler().runTaskLaterAsynchronously(this, () -> {
+		FoliaScheduler.runAsyncDelayed(this, () -> {
 			areaStorage.getAreas();
 			areaStorage.getPortals();
 		}, 10);

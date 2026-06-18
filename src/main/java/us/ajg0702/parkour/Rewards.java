@@ -17,6 +17,7 @@ import us.ajg0702.parkour.api.events.PlayerStartParkourEvent;
 import us.ajg0702.parkour.game.PkArea;
 import us.ajg0702.parkour.game.PkPlayer;
 import us.ajg0702.parkour.top.TopManager;
+import us.ajg0702.parkour.utils.FoliaScheduler;
 
 public class Rewards implements Listener {
 
@@ -109,22 +110,21 @@ public class Rewards implements Listener {
 		final Player player = p.getPlayer();
 		
 		if(!p.beatServerHighscore) {
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+			FoliaScheduler.runAsync(plugin, () -> {
 				int topscore;
 				try {
-					int number = 1;
 					topscore = TopManager.getInstance().getTop(1, null).getScore();
 
 				} catch(Exception e) {return;}
 				if(score > topscore) {
 					String message = msgs.color(rw.getString("specials.beat-server-record.message", ""));
 					if(!message.isEmpty()) {
-						player.sendMessage(message);
+						FoliaScheduler.runForEntity(plugin, player, () -> player.sendMessage(message));
 					}
 					List<String> cmds = rw.getStringList("specials.beat-server-record.commands"	);
 					cmds.replaceAll(s -> s.replaceAll("\\{SCORE}", score+""));
 					if(cmds.size() != 0) {
-						Bukkit.getScheduler().runTask(plugin, () -> executeCommands(cmds, p));
+						FoliaScheduler.runForEntity(plugin, player, () -> executeCommands(cmds, p));
 					}
 					p.beatServerHighscore = true;
 				}

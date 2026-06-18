@@ -25,6 +25,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import us.ajg0702.parkour.game.PkArea;
+import us.ajg0702.parkour.utils.FoliaScheduler;
 import us.ajg0702.parkour.utils.VersionSupport;
 
 public class BlockSelector implements Listener {
@@ -332,7 +333,7 @@ public class BlockSelector implements Listener {
 	private final ConcurrentHashMap<Player, String> blockCache = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<Player, Long> blockFetch = new ConcurrentHashMap<>();
 	public String getBlock(Player p, PkArea area) {
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+		FoliaScheduler.runAsync(plugin, () -> {
 			for(Player player : blockCache.keySet()) {
 				if(player.isOnline()) continue;
 				blockCache.remove(player);
@@ -404,9 +405,9 @@ public class BlockSelector implements Listener {
 	}
 
 	private void cacheBlock(Player p) {
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+		FoliaScheduler.runAsync(plugin, () -> {
 			final String raw = scores.getMaterial(p.getUniqueId());
-			Bukkit.getScheduler().runTask(plugin, () -> {
+			FoliaScheduler.runForEntity(plugin, p, () -> {
 				blockCache.put(p, raw);
 				blockFetch.put(p, System.currentTimeMillis());
 			});

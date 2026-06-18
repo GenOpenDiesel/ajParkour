@@ -20,6 +20,7 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import us.ajg0702.parkour.game.Difficulty;
 import us.ajg0702.parkour.game.Manager;
 import us.ajg0702.parkour.game.PkArea;
+import us.ajg0702.parkour.utils.FoliaScheduler;
 import us.ajg0702.utils.spigot.Config;
 
 public class AreaStorage implements Listener {
@@ -50,9 +51,10 @@ public class AreaStorage implements Listener {
 		}
 		
 		if(mainConfig.getBoolean("enable-portals") && mainConfig.getBoolean("faster-portals")) {
-			Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+			FoliaScheduler.runTimer(plugin, () -> {
 				for(Player p : Bukkit.getOnlinePlayers()) {
-					checkPortal(new PlayerMoveEvent(p, p.getLocation(), p.getLocation()));
+					FoliaScheduler.runForEntity(plugin, p, () ->
+							checkPortal(new PlayerMoveEvent(p, p.getLocation(), p.getLocation())));
 				}
 			}, 3*20, 5);
 		}
@@ -142,7 +144,7 @@ public class AreaStorage implements Listener {
 					Location ploc = new Location(world, x, y, z);
 					save(new Portal(i+"", ploc, null));
 				}
-				Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, this::reload, 20);
+				FoliaScheduler.runDelayed(plugin, this::reload, 20);
 			} else {
 				return new ArrayList<>();
 			}

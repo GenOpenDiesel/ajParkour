@@ -15,6 +15,7 @@ import us.ajg0702.parkour.Main;
 import us.ajg0702.parkour.Messages;
 import us.ajg0702.parkour.api.events.PrePlayerStartParkourEvent;
 import us.ajg0702.parkour.top.TopManager;
+import us.ajg0702.parkour.utils.FoliaScheduler;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -45,12 +46,12 @@ public class Manager implements Listener {
 
 		msgs = main.msgs;
 
-		Bukkit.getScheduler().scheduleSyncDelayedTask(pl, this::reloadPositions, 5);
-		Bukkit.getScheduler().scheduleSyncRepeatingTask(main, this::checkActive, 15*20, 60*20);
-		Bukkit.getScheduler().runTaskTimer(pl, () -> {
+		FoliaScheduler.runDelayed(pl, this::reloadPositions, 5);
+		FoliaScheduler.runTimer(main, this::checkActive, 15*20, 60*20);
+		FoliaScheduler.runTimer(pl, () -> {
 			if(main.config.getBoolean("debug")) {
 				for(PkArea a : getAreas()) {
-					a.draw();
+					FoliaScheduler.runAtLocation(main, a.getPos1(), a::draw);
 				}
 			}
 		}, 10, 20);

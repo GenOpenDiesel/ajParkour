@@ -19,6 +19,7 @@ import us.ajg0702.parkour.game.PkArea;
 import us.ajg0702.parkour.game.PkPlayer;
 import us.ajg0702.parkour.top.TopEntry;
 import us.ajg0702.parkour.top.TopManager;
+import us.ajg0702.parkour.utils.FoliaScheduler;
 import us.ajg0702.utils.spigot.Config;
 import us.ajg0702.parkour.utils.Updater;
 
@@ -460,7 +461,7 @@ public class Commands implements CommandExecutor {
 							editing = new HashMap<>();
 							
 							final Player p = (Player) sender;
-							Bukkit.getScheduler().runTask(pl, () -> {
+							FoliaScheduler.runForEntity(pl, p, () -> {
 								pl.man.reloadPositions();
 								p.sendMessage(msgs.get("setup.save.success", p).replaceAll("\\{NAME}", name));
 							});
