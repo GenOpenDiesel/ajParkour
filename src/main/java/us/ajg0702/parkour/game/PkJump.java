@@ -28,8 +28,9 @@ public class PkJump {
 	 * Creating a jump for the player. Will calculate best possible direction to place the block.
 	 * @param ply A {@link us.ajg0702.parkour.game.PkPlayer PkPlayer} that the block belongs to
 	 * @param from The 'from' location of the previous jump
+	 * @param yaw The player's yaw (left-right looking) captured on the player's own thread
 	 */
-	public PkJump(PkPlayer ply, Location from) {
+	public PkJump(PkPlayer ply, Location from, float yaw) {
 		man = ply.man;
 		this.ply = ply;
 		this.main = man.main;
@@ -98,7 +99,7 @@ public class PkJump {
 		
 		HashMap<Object, Double> sc = new HashMap<>();
 		for(Location bk : bks) {
-			sc.put(bk, (double)getBlockScore(bk, from, ply.getArea(), ply, ply.getPlayer().getLocation().getYaw()));
+			sc.put(bk, (double)getBlockScore(bk, from, ply.getArea(), ply, yaw));
 		}
 		
 		/*for(Object k : sc.keySet()) {

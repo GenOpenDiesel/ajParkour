@@ -4,6 +4,7 @@ import fr.mrmicky.infinitejump.InfiniteJump;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
@@ -49,7 +50,14 @@ public class PkPlayer implements Listener {
 	
 	int score = 0;
 	
-	boolean active = true;
+	volatile boolean active = true;
+
+	// true once the jumps have been generated/placed and the player teleported in.
+	// Guards move/fall checks during the brief async setup window.
+	volatile boolean ready = false;
+
+	// ensures end() runs its cleanup exactly once
+	private boolean ended = false;
 	
 	boolean teleporting = false;
 	
@@ -135,30 +143,42 @@ public class PkPlayer implements Listener {
 			 ij = (InfiniteJump) Bukkit.getPluginManager().getPlugin("InfiniteJump");
 		}
 		
-		Location start = area.getRandomPosition();
-		jumps = new ArrayList<>();
-		jumps.add(new PkJump(this, start));
-		Location prevJump = jumps.get(jumps.size()-1).getFrom();
-		jumps.add(new PkJump(this, prevJump));
-		jumps.get(0).place();
-		int i = 0;
-		while(i < ahead) {
-			i++;
-			jumps.add(new PkJump(this, jumps.get(jumps.size()-1).getFrom()));
-			jumps.get(jumps.size()-1).place();
-		}
-		
-		for(PkJump jump : jumps) {
-			if(!jump.isPlaced()) {
-				jump.place();
-			}
-		}
-		Location tp = jumps.get(0).getTo();
+		// Capture orientation on the player's own thread. Block generation/placement must run on
+		// the region thread that owns the parkour area, so we can't read the player's location there.
+		final float yaw = p.getLocation().getYaw();
+		final float pitch = p.getLocation().getPitch();
 		teleporting = true;
-		p.teleport(new Location(tp.getWorld(), tp.getX()+0.5, tp.getY()+1.5, tp.getZ()+0.5, p.getLocation().getYaw(), p.getLocation().getPitch()));
-		FoliaScheduler.runDelayedForEntity(m.main, ply, () -> teleporting = false, 5);
-		
-		playSound("start-sound", p);
+		jumps = new ArrayList<>();
+		FoliaScheduler.runAtLocation(plugin, area.getPos1(), () -> {
+			if(!active) return; // player already left/ended during setup
+			Location start = area.getRandomPosition();
+			jumps.add(new PkJump(this, start, yaw));
+			Location prevJump = jumps.get(jumps.size()-1).getFrom();
+			jumps.add(new PkJump(this, prevJump, yaw));
+			jumps.get(0).place();
+			int i = 0;
+			while(i < ahead) {
+				i++;
+				jumps.add(new PkJump(this, jumps.get(jumps.size()-1).getFrom(), yaw));
+				jumps.get(jumps.size()-1).place();
+			}
+
+			for(PkJump jump : jumps) {
+				if(!jump.isPlaced()) {
+					jump.place();
+				}
+			}
+			Location tp = jumps.get(0).getTo();
+			final Location dest = new Location(tp.getWorld(), tp.getX()+0.5, tp.getY()+1.5, tp.getZ()+0.5, yaw, pitch);
+			FoliaScheduler.runForEntity(plugin, ply, () -> {
+				if(!active) return;
+				FoliaScheduler.teleport(ply, dest);
+				FoliaScheduler.runDelayedForEntity(m.main, ply, () -> teleporting = false, 5);
+				playSound("start-sound", ply);
+				ready = true;
+				Bukkit.getPluginManager().callEvent(new PlayerStartParkourEvent(this));
+			});
+		});
 		
 		
 		if(config.getBoolean("parkour-inventory")) {
@@ -199,10 +219,6 @@ public class PkPlayer implements Listener {
 		}, 0, 20);
 		
 		
-		
-		Bukkit.getPluginManager().callEvent(new PlayerStartParkourEvent(this));
-		
-		
 		if(infiniteJump) {
 			if(ij.getJumpManager().isActive(ply)) {
 				ij.getJumpManager().disable(ply);
@@ -231,7 +247,7 @@ public class PkPlayer implements Listener {
 		jumps.remove(0);
 		Location prevJump = jumps.get(jumps.size()-1).getFrom();
 		//ply.sendMessage(AreaStorage.coordsString(prevJump));
-		PkJump nj = new PkJump(this, prevJump);
+		PkJump nj = new PkJump(this, prevJump, ply.getLocation().getYaw());
 		nj.place();
 		jumps.add(nj);
 		VersionSupport.sendActionBar(ply, 
@@ -329,6 +345,7 @@ public class PkPlayer implements Listener {
 	 * @return A boolean telling if they made the jump or not.
 	 */
 	public boolean checkMadeIt() {
+		if(!ready || jumps.size() < 2) return false;
 		double x = ply.getLocation().getX();
 		double z = ply.getLocation().getZ();
 		
@@ -349,6 +366,7 @@ public class PkPlayer implements Listener {
 	 * Check if the player fell. If they did, end the parkour
 	 */
 	public void checkFall() {
+		if(!ready || jumps.isEmpty()) return;
 		int below = 1;
 		Location plyloc = ply.getLocation();
 		int my = jumps.get(0).getTo().getBlockY();
@@ -408,11 +426,29 @@ public class PkPlayer implements Listener {
 	 * @param reason The reason to end the parkour
 	 */
 	public void end(String reason) {
-		for(PkJump j : jumps) {
-			j.remove();
+		// Make end() run exactly once, even if several events (move, quit, afk, teleport) race to end.
+		synchronized(this) {
+			if(ended) return;
+			ended = true;
+			active = false;
 		}
-		
+
+		// Cleanup first so nothing leaks even if something below throws.
 		if(afktask != null) afktask.cancel();
+		if(clearPotsTask != null) clearPotsTask.cancel();
+		if(fastAfkCheckTask != null) fastAfkCheckTask.cancel();
+		HandlerList.unregisterAll(this);
+		man.releaseStart(ply.getUniqueId());
+		if(!man.pluginDisabling) {
+			man.checkActive();
+		}
+
+		// Remove blocks on the region thread that owns the parkour area.
+		FoliaScheduler.runAtLocation(plugin, area.getPos1(), () -> {
+			for(PkJump j : jumps) {
+				j.remove();
+			}
+		});
 		
 		if(!reason.isEmpty()) {
 			ply.sendMessage(msgs.get("fall.force.base")+reason);
@@ -444,7 +480,11 @@ public class PkPlayer implements Listener {
 		
 		if(area.getFallPos() != null) {
 			teleporting = true;
-			ply.teleport(area.getFallPos());
+			try {
+				FoliaScheduler.teleport(ply, area.getFallPos());
+			} catch(RuntimeException e) {
+				Bukkit.getLogger().warning("[ajParkour] Could not teleport player to fall position: " + e.getMessage());
+			}
 		}
 		
 		
@@ -458,19 +498,6 @@ public class PkPlayer implements Listener {
 				e.printStackTrace();
 			}
 		}
-		
-		
-		
-		for(PkJump jump : jumps) {
-			jump.remove();
-		}
-		active = false;
-		if(!man.pluginDisabling) {
-			man.checkActive();
-		}
-		
-		if(clearPotsTask != null) clearPotsTask.cancel();
-		if(fastAfkCheckTask != null) fastAfkCheckTask.cancel();
 		
 		playSound("end-sound", ply);
 		

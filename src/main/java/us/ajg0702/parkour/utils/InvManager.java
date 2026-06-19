@@ -31,10 +31,14 @@ public class InvManager {
     	Plugin plugin = Bukkit.getPluginManager().getPlugin("ajParkour");
     	File f = new File(plugin.getDataFolder().getAbsolutePath(), "inventories/"+p.getUniqueId().toString() + ".yml");
         FileConfiguration c = YamlConfiguration.loadConfiguration(f);
-        ItemStack[] content = ((List<ItemStack>) c.get("inventory.armor")).toArray(new ItemStack[0]);
-        p.getInventory().setArmorContents(content);
-        content = ((List<ItemStack>) c.get("inventory.content")).toArray(new ItemStack[0]);
-        p.getInventory().setContents(content);
+        List<ItemStack> armor = (List<ItemStack>) c.get("inventory.armor");
+        List<ItemStack> contents = (List<ItemStack>) c.get("inventory.content");
+        if(armor == null || contents == null) {
+            // No saved inventory (or a corrupted file): nothing to restore, avoid wiping the player's items.
+            return;
+        }
+        p.getInventory().setArmorContents(armor.toArray(new ItemStack[0]));
+        p.getInventory().setContents(contents.toArray(new ItemStack[0]));
     }
 
 }

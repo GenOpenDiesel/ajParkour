@@ -21,6 +21,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * A class for managing all players in the parkour.
@@ -32,9 +36,13 @@ public class Manager implements Listener {
 
 	static Manager instance = null;
 
-	List<PkPlayer> plys = new ArrayList<>();
+	// Folia runs events/commands on per-region threads in parallel, so these are accessed concurrently.
+	List<PkPlayer> plys = new CopyOnWriteArrayList<>();
 
-	List<PkArea> areas = new ArrayList<>();
+	volatile List<PkArea> areas = new ArrayList<>();
+
+	// Guards against starting a game twice for the same player (race / dupe protection)
+	private final Set<UUID> starting = ConcurrentHashMap.newKeySet();
 
 	Main main;
 
@@ -226,8 +234,26 @@ public class Manager implements Listener {
 			return;
 		}
 
-		PkPlayer p = new PkPlayer(ply, Manager.getInstance(), s);
-		plys.add(p);
+		// Atomically claim this player. If they are already (being) started, abort so we don't
+		// save/clear their inventory twice (which could lose or duplicate items).
+		if(!starting.add(ply.getUniqueId())) {
+			return;
+		}
+		try {
+			PkPlayer p = new PkPlayer(ply, Manager.getInstance(), s);
+			plys.add(p);
+		} catch(RuntimeException e) {
+			starting.remove(ply.getUniqueId());
+			throw e;
+		}
+	}
+
+	/**
+	 * Releases the start-claim for a player. Called when a parkour game ends.
+	 * @param uuid the player's UUID
+	 */
+	void releaseStart(UUID uuid) {
+		starting.remove(uuid);
 	}
 
 	/**

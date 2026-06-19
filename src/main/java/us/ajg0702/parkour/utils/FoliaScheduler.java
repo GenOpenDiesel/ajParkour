@@ -20,6 +20,28 @@ public final class FoliaScheduler {
 		return FOLIA;
 	}
 
+	/**
+	 * Teleports an entity in a way that is safe across regions/worlds.
+	 * On Folia (or Paper) it uses the asynchronous teleport so it can cross region/world
+	 * boundaries without violating the owning-thread requirement. On plain Spigot it falls
+	 * back to the regular synchronous teleport.
+	 */
+	public static void teleport(Entity entity, Location location) {
+		if(entity == null || location == null) {
+			return;
+		}
+		try {
+			Method async = entity.getClass().getMethod("teleportAsync", Location.class);
+			async.invoke(entity, location);
+			return;
+		} catch(NoSuchMethodException ignored) {
+			// not running Paper/Folia, fall back to sync teleport below
+		} catch(ReflectiveOperationException e) {
+			throw new IllegalStateException("Unable to teleport entity", e);
+		}
+		entity.teleport(location);
+	}
+
 	public static Task run(Plugin plugin, Runnable runnable) {
 		if(FOLIA) {
 			return global(plugin, "run", runnable);
