@@ -199,6 +199,7 @@ public final class FoliaScheduler {
 				continue;
 			}
 			try {
+				method.setAccessible(true);
 				return new Task(method.invoke(scheduler, params));
 			} catch(InvocationTargetException e) {
 				Throwable cause = e.getCause();
@@ -244,7 +245,9 @@ public final class FoliaScheduler {
 				return;
 			}
 			try {
-				task.getClass().getMethod("cancel").invoke(task);
+				Method cancel = task.getClass().getMethod("cancel");
+				cancel.setAccessible(true);
+				cancel.invoke(task);
 			} catch(ReflectiveOperationException e) {
 				throw new IllegalStateException("Unable to cancel scheduled task", e);
 			}
