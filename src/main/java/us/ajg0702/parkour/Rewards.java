@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.plugin.java.JavaPlugin;
 import us.ajg0702.parkour.api.events.PlayerEndParkourEvent;
 import us.ajg0702.parkour.api.events.PlayerStartParkourEvent;
 import us.ajg0702.parkour.game.PkArea;
@@ -331,6 +332,19 @@ public class Rewards implements Listener {
 	}
 	
 	public static void staticExecuteCommands(List<String> cmds, Player p) {
+		if(cmds == null || cmds.isEmpty() || p == null) {
+			return;
+		}
+		List<String> commands = new ArrayList<>(cmds);
+		Runnable execute = () -> dispatchCommands(commands, p);
+		if(FoliaScheduler.isFolia()) {
+			FoliaScheduler.run(JavaPlugin.getProvidingPlugin(Rewards.class), execute);
+			return;
+		}
+		execute.run();
+	}
+
+	private static void dispatchCommands(List<String> cmds, Player p) {
 		//Bukkit.getLogger().info("staticExecuteRewards is getting executed");
 		for(String cmdr : cmds) {
 			//Bukkit.getLogger().info("staticExecuteRewards: "+cmdr);
