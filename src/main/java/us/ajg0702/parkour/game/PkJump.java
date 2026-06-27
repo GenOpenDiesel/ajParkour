@@ -316,6 +316,7 @@ public class PkJump {
 			if(ply != null) {
 				if(p.equals(ply)) continue;
 			}
+			if(p.jumps == null || p.jumps.isEmpty()) continue;
 			List<Double> l = new ArrayList<>();
 			for(PkJump j : p.jumps) {
 				Location t = j.getFrom();
