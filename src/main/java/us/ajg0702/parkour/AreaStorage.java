@@ -31,8 +31,15 @@ public class AreaStorage implements Listener {
 	YamlConfiguration config;
 	
 	Config mainConfig;
-	
+
 	Messages msgs;
+
+	// Cache of the portal list. getPortals() is called for every online player
+	// several times a second (see the faster-portals timer below and the
+	// PlayerMoveEvent handler), so rebuilding it from the YAML config - or worse,
+	// re-reading config.yml from disk - on every call murders the server thread.
+	// null = needs to be (re)built. Invalidated whenever portals change.
+	private List<Portal> portalsCache = null;
 	
 	
 	public AreaStorage(Main plugin) {
@@ -77,6 +84,7 @@ public class AreaStorage implements Listener {
 	public void reload() {
 		configfile = new File(plugin.getDataFolder(), "positions.yml");
 		config = YamlConfiguration.loadConfiguration(configfile);
+		portalsCache = null;
 	}
 	
 	public List<PkArea> getAreas() {
@@ -122,10 +130,18 @@ public class AreaStorage implements Listener {
 		}
 	
 		config.set("portals."+portal.getName(), d);
+		portalsCache = null;
 		saveFile();
 	}
 	
 	public List<Portal> getPortals() {
+		if(portalsCache == null) {
+			portalsCache = loadPortals();
+		}
+		return portalsCache;
+	}
+
+	private List<Portal> loadPortals() {
 		if(!config.isSet("portals")) {
 			YamlConfiguration oldconfig = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "config.yml"));
 			if(oldconfig.isSet("area.portals")) {
@@ -282,6 +298,7 @@ public class AreaStorage implements Listener {
 			Set<String> portals = config.getConfigurationSection("portals").getKeys(false);
 			if(portals.contains(portalname)) {
 				config.set("portals."+portalname, null);
+				portalsCache = null;
 				p.sendMessage(msgs.get("portals.remove.success", p).replaceAll("\\{NAME}", portalname));
 				saveFile();
 				Manager.getInstance().reloadPositions();
