@@ -336,15 +336,16 @@ public class Rewards implements Listener {
 			return;
 		}
 		List<String> commands = new ArrayList<>(cmds);
-		Runnable execute = () -> dispatchCommands(commands, p);
+		JavaPlugin plugin = JavaPlugin.getProvidingPlugin(Rewards.class);
+		Runnable execute = () -> dispatchCommands(commands, p, plugin);
 		if(FoliaScheduler.isFolia()) {
-			FoliaScheduler.run(JavaPlugin.getProvidingPlugin(Rewards.class), execute);
+			FoliaScheduler.runForEntity(plugin, p, execute);
 			return;
 		}
 		execute.run();
 	}
 
-	private static void dispatchCommands(List<String> cmds, Player p) {
+	private static void dispatchCommands(List<String> cmds, Player p, JavaPlugin plugin) {
 		//Bukkit.getLogger().info("staticExecuteRewards is getting executed");
 		for(String cmdr : cmds) {
 			//Bukkit.getLogger().info("staticExecuteRewards: "+cmdr);
@@ -363,7 +364,12 @@ public class Rewards implements Listener {
 			if(execAsPlayer) {
 				Bukkit.dispatchCommand(p.getPlayer(), cmd);
 			} else {
-				Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+				String consoleCommand = cmd;
+				if(FoliaScheduler.isFolia()) {
+					FoliaScheduler.run(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), consoleCommand));
+				} else {
+					Bukkit.dispatchCommand(Bukkit.getConsoleSender(), consoleCommand);
+				}
 			}
 		}
 	}

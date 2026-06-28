@@ -156,7 +156,7 @@ public final class FoliaScheduler {
 			Object[] entityParams = new Object[params.length + 1];
 			entityParams[0] = plugin;
 			entityParams[1] = params[1];
-			entityParams[2] = null;
+			entityParams[2] = (Runnable) () -> {};
 			if(ticks.length > 0) {
 				System.arraycopy(params, 2, entityParams, 3, params.length - 2);
 			}

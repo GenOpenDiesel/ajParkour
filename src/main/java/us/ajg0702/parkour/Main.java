@@ -99,7 +99,7 @@ public class Main extends JavaPlugin {
 		JumpManager.getInstance(this);
 		
 		
-		FoliaScheduler.runAsyncDelayed(this, () -> {
+		FoliaScheduler.runDelayed(this, () -> {
 			areaStorage.getAreas();
 			areaStorage.getPortals();
 		}, 10);
